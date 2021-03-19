@@ -54,6 +54,7 @@ class [[eosio::contract]] Redmine:public contract  {
         
         [[eosio::action]]
         void add(std::vector<worker> workers,const uint64_t project_id){
+            check(has_auth(get_self()),"not authorized");
             //check(has_auth(name("someName")),"not authorized");
             hours_table hTable(get_self(),project_id);
             projects_table pTable(get_self(),get_self().value);
@@ -90,13 +91,14 @@ class [[eosio::contract]] Redmine:public contract  {
                 }
                 workHours+=w.hours;
             }
+            prj = pTable.find(project_id);
             pTable.modify(prj,get_self(),[&](auto& new_row){
                     new_row.hours+=workHours;
             });
         }
         [[eosio::action]]
         void finallize(uint64_t& project_id){
-            //check(has_auth(name("someName")),"not authorized");
+            check(has_auth(get_self()),"not authorized");
             projects_table pTable(get_self(),get_self().value);
             auto prj = pTable.find(project_id);
             pTable.modify(prj,get_self(),[&](auto& new_row){
@@ -109,8 +111,6 @@ class [[eosio::contract]] Redmine:public contract  {
             
             //check(has_auth(name("someName")),"not authorized");
         }
-        
-        [[eosio::on_notify("eosio.token::transfer")]] 
         void paid(const name& from,const name& to,const asset&  quantity,const std::string& memo){
             if(to!=get_self())return;
             
@@ -134,20 +134,39 @@ class [[eosio::contract]] Redmine:public contract  {
                 distribute(std::stoi(memo),quantity,prj->hours);
             }
         }
+        [[eosio::on_notify("eosio.token::transfer")]] 
+        void paidtnt(const name& from,const name& to,const asset&  quantity,const std::string& memo){
+            paid(from,to,quantity,memo);
+        }
+
+        [[eosio::on_notify("mehosimjvkkw::transfer")]]
+        void paiddgt(const name& from,const name& to,const asset&  quantity,const std::string& memo){
+            paid(from,to,quantity,memo);
+        } 
+        
         //[[eosio::action]]
         void distribute(uint64_t project,asset quantity,float hours){
             hours_table hTable(get_self(),project);
             auto itr = hTable.cbegin();
+            symbol token = quantity.symbol;
+            //print(token);
             for(;itr!=hTable.cend();itr++){
-                asset salary = asset(quantity.amount * ((itr->hours)/hours) , symbol("EOS",4));
-            
-                action(
-                    permission_level{ _self, "active"_n },
-                    "eosio.token"_n, "transfer"_n,
-                    std::make_tuple(_self, itr->worker, salary, std::string("salary"))
-                ).send();
+                asset salary = asset(quantity.amount * ((itr->hours)/hours) , quantity.symbol);
+                
+                if(token==symbol("TNT",4)){
+                    action(
+                        permission_level{ _self, "active"_n },
+                        "eosio.token"_n, "transfer"_n,
+                        std::make_tuple(_self, itr->worker, salary, std::string("salary"))
+                    ).send();
+                }else if(token==symbol("DGT",4)){
+                    action(
+                        permission_level{ _self, "active"_n },
+                        "mehosimjvkkw"_n, "transfer"_n,
+                        std::make_tuple(_self, itr->worker, salary, std::string("salary"))
+                    ).send();
+                }
             }
-
 
         }
 };
