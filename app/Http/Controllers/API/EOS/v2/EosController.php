@@ -244,7 +244,7 @@ class EosController extends Controller
 		return $result;
 	}
 
-	private function log_request($url, $object, $response)
+	private static function log_request($url, $method, $info, $object, $body, $response)
 	{
 		$url = parse_url($url);
 
@@ -265,7 +265,7 @@ class EosController extends Controller
 		$log->request = base64_encode(gzcompress((($object != false)
 			? json_encode($object)
 			: $body), 9));
-		$log->response = base64_encode(gzcompress($head, 9));
+		$log->response = base64_encode(gzcompress($response, 9));
 		$log->created_at = Carbon::now();
 		$log->save();
 	}
@@ -301,7 +301,7 @@ class EosController extends Controller
 		$response = curl_exec($ch);
 		$info = curl_getinfo($ch);
 
-		$this->log_request($url, $object, $response);
+		self::log_request($url, $method, $info, $object, $body, $response);
 
 		curl_close($ch);
 
